@@ -47,14 +47,21 @@ def unique_categories(dataframe, column):
 def column_std(dataframe, column, value):
     """Calculates the std of each category in a column to check for ANOVA Test assumption:\n
     The standard deviations of the groups should be equal\n
-    Returns a list of unique categories for the column"""
+    Prints out the std of each category and prints out the ratio of the max std/min std"""
     
     #List of unique categories in a column for std calculations
     categories = unique_categories(dataframe, column)
+    
+    #Stores the std of each category to prep for ratio calculation
+    standard_deviations = []
 
     #Prints out category and std for ANOVA Test std assumption 
     for category in categories:
         print(category, dataframe[dataframe[column] == category][value].std())
+        standard_deviations.append(dataframe[dataframe[column] == category][value].std())
+    
+    ANOVA_std_ratio = max(standard_deviations) / min(standard_deviations)
+    print(f"ANOVA std ratio is: {ANOVA_std_ratio}")
 
 
 def zscore_normalization(dataframe, column, zscore_threshold=3):
