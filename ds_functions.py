@@ -11,30 +11,30 @@ def missing_data_check(dataframe):
     print(dataframe.isnull().sum())
 
 
-def summary_stats_barplot(dataframe, np_function, category, value):
-    """Takes the dataframe and groups and sorts the data, according to the aggregate function passed in, for seaborn visualization\n
+def summary_stats_barplot(dataframe, np_function, column, value):
+    """Takes the dataframe, groups by column and sorts the data by value, according to the aggregate function passed in, for seaborn visualization\n
     Examples of functions are np.mean, np.median, etc"""
     
     # Summary stat to serve as a reference vertical line in the bar graph 
-    suicide_rates = np_function(dataframe[value])
+    summary_stat = np_function(dataframe[value])
     
     # Sort values by category in desending order to prep for creating an ordered barplot
-    suicides_sorted = (
-                        dataframe.groupby(by=category, as_index=False)[value]
+    dataframe_sorted = (
+                        dataframe.groupby(by=column, as_index=False)[value]
                         .agg(np_function)
                         .sort_values(by=value, ascending=False)
     )
     
     # Visualization of the choosen summary stat to identify trends 
-    sns.barplot(data=suicides_sorted, x=value, y=category)
-    plt.axvline(suicide_rates, linestyle='--', color='black')
+    sns.barplot(data=dataframe_sorted, x=value, y=column)
+    plt.axvline(summary_stat, linestyle='--', color='black')
     plt.show()  
 
 
-def sorted_boxplot(dataframe, category, value):
+def sorted_boxplot(dataframe, column, value):
     """Sorts the dataframe based on the category/column in descending order to create a sorted boxplot visualization"""
-    dataframe.sort_values(by=category, ascending=False, inplace=True)
-    sns.boxplot(data=dataframe, x=value, y=category)
+    dataframe.sort_values(by=column, ascending=False, inplace=True)
+    sns.boxplot(data=dataframe, x=value, y=column)
     plt.show()
 
 
@@ -61,7 +61,7 @@ def column_std(dataframe, column, value):
         standard_deviations.append(dataframe[dataframe[column] == category][value].std())
     
     ANOVA_std_ratio = max(standard_deviations) / min(standard_deviations)
-    print(f"ANOVA std ratio is: {ANOVA_std_ratio}")
+    print(f"ANOVA std ratio for {value} is: {ANOVA_std_ratio}")
 
 
 def zscore_normalization(dataframe, column, zscore_threshold=3):
@@ -119,25 +119,65 @@ def tukeys_test(dataframe, column, value, pval_threshold=0.05):
     print(tukey_results)
 
 
-def ln_transformation(dataframe, column):
-    """Performs a natural log transformation on the values from a specific column\n
+def ln_transformation(dataframe, columns):
+    """Performs a natural log transformation on the values from a specific column(s)\n
     Prints out the number of row removed to complete the transformation\n
-    Returns a dataframe tranformed column"""
+    Returns a dataframe tranformed column(s)"""
 
     # Copy to perform ln transformation to preserve clean dataset
     dataframe_ln = dataframe.copy()
 
-    #Remove all suicide rates <=0 to prep for transformation (log of value <= 0 is undefined)
+    #Remove all values <=0 to prep for transformation (log of value <= 0 is undefined)
     undefined = 0
-    dataframe_ln = dataframe_ln[dataframe_ln[column] > undefined]
+    for column in columns:
+        dataframe_ln = dataframe_ln[dataframe_ln[column] > undefined]
+
+        # ln transformation for data profiling and ANOVA test
+        dataframe_ln[column] = np.log(dataframe_ln[column])
 
     # Check number of records removed
     records_removed = len(dataframe) - len(dataframe_ln)
     print(f'{records_removed} records removed')
 
-    # ln transformation for data profiling and ANOVA test
-    dataframe_ln[column] = np.log(dataframe_ln[column])
-
     return dataframe_ln
 
 
+def unique_values(dataframe):
+    """Examine values of all columns to find null or inappropriate values for data cleaning"""
+    #Examine unique values for each column for data cleaning
+    columns = dataframe.columns
+
+    for column in columns:
+        print(f"{column}: {dataframe[column].unique()}\n")
+
+
+def corr_heatmap(dataframe, cmap='RdBu_r'):
+    """Selects all numeric columns of a dataframe and displays a heatmap visualization"""
+    # Filter by numeric columns to calculate pearson correlation
+    dataframe_numeric = dataframe.select_dtypes(include=np.number)
+
+    # Create a correlation matrix to visualize the correlations of the numeric columns
+    corr_matrix = dataframe_numeric.corr()
+
+    # Heatmap visualization to identify correlated variables
+    sns.heatmap(corr_matrix, annot=True, vmin=-1, vmax=1, cmap=cmap)
+    plt.show()
+
+
+def corr_heatmap_by_category(dataframe, column, cmap='RdBu_r'):
+    ## Using unique categories function create a filter for dataframes by category
+    
+    # Find all unique categories for a column to loop through
+    categories = unique_categories(dataframe, column)
+
+    for category in categories:
+        # Filter by category and select only numeric columns to calculate pearson correlation
+        filtered_dataframe = dataframe[dataframe[column] == category].select_dtypes(include=np.number)
+
+        # Create a correlation matrix to visualize the correlations of the numeric columns
+        corr_matrix = filtered_dataframe.corr()
+
+        # Heatmap visualization to identify correlated variables
+        sns.heatmap(corr_matrix, annot=True, vmin=-1, vmax=1, cmap=cmap)
+        plt.title(category)
+        plt.show()
