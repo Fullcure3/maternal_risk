@@ -6,6 +6,7 @@ from scipy.stats import zscore, f_oneway, ttest_ind
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import GridSearchCV
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 
 def missing_data_check(dataframe):
     """Summary of dtypes and null values to aid in data cleaning"""
@@ -167,7 +168,8 @@ def corr_heatmap(dataframe, cmap='RdBu_r'):
 
 
 def corr_heatmap_by_category(dataframe, column, cmap='RdBu_r'):
-    ## Using unique categories function create a filter for dataframes by category
+    """Separates data by the column's unique categories\n
+    Then selects all numeric columns and displays a heatmap visualization for each category"""
     
     # Find all unique categories for a column to loop through
     categories = unique_categories(dataframe, column)
@@ -262,6 +264,7 @@ def KNC_evaluation(X_train, X_test, y_train, y_test, **kwargs):
     # Calculate the performance of the model to determine if overfitting/underfitting is occuring
     print(f"Accuracy score of training data: {classifier.score(X_train, y_train)}")
     print(f"Accuracy score of test data: {classifier.score(X_test, y_test)}")
+    
     return classifier
 
 
