@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import zscore, f_oneway, ttest_ind
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import GridSearchCV
 
 def missing_data_check(dataframe):
     """Summary of dtypes and null values to aid in data cleaning"""
@@ -181,3 +183,103 @@ def corr_heatmap_by_category(dataframe, column, cmap='RdBu_r'):
         sns.heatmap(corr_matrix, annot=True, vmin=-1, vmax=1, cmap=cmap)
         plt.title(category)
         plt.show()
+
+
+def extract_features(dataframe, label):
+    """Splits features and labels for future machine learning algorithms\n
+    Label is the classification/regression column of interest\n
+    Returns features, labels"""
+    
+    # Select features and outcomes for train_test_split
+    features = dataframe.drop(columns=[label])
+    labels = dataframe[label]
+
+    # All features in the current dataset for verification 
+    print(features.columns)
+
+    return features, labels
+
+
+def scale_features(ScalerModel, features, **kwargs):
+    """Scales the features with the passed in scaler object\n
+    Features are typically normalized to prevent one feature from having more weight than another, which can reduce model predictions\n
+    Returns the scaled_features"""
+    # Normalize the data to prevent one or more features from having more importance than other features during model creation
+    scaler = ScalerModel(**kwargs)
+    scaled_features = scaler.fit_transform(features)
+
+    # Check for correct features 
+    print(scaler.get_feature_names_out())
+
+    return scaled_features
+
+
+def sfs_selection_details(sfs, features):
+    """Prints out chosen column indexes/names that scored the highest after sequential feature selection"""
+    chosen_features_indexes = sfs.k_feature_idx_
+    feature_column_names = features.iloc[:, list(chosen_features_indexes)].columns
+    model_score = sfs.k_score_
+
+    print(f"Column indexes chosen are: {chosen_features_indexes}")
+    print(f"Column names chosen are: {feature_column_names}")
+    print(f"Model score is: {model_score}")
+
+
+def selected_feature_data(sfs, scaled_features):
+    """Identifies highest scoring features for use in train_test_split and machine learning algorithms\n
+    Returns the feature columns/data that scored the highest from the sfs"""
+    
+    # Convert numpy array of chosen feature indexes to list to filter scaled features dataframe
+    chosen_features_indexes = list(sfs.k_feature_idx_)
+    
+    # Select all rows and specific columns using [rows, columns]
+    features_sfs = scaled_features[:, chosen_features_indexes]
+    
+    return features_sfs
+
+
+def sfs_feature_selection(MLModelClass, scaled_features, labels, **kwargs):
+    """SFS to automate which features would improve the model's accuracy/effectiveness\n
+    Returns the fitted sfs model, num_of_features"""
+    sfs = SFS(estimator=MLModelClass(),
+         **kwargs
+         )
+
+    sfs.fit(scaled_features, labels)
+    num_of_features = len(sfs.k_feature_idx_)
+
+    return sfs, num_of_features
+
+
+def KNC_evaluation(X_train, X_test, y_train, y_test, **kwargs):
+    """Creates a KNeighborsClaasifier and prints the scores of the training and testing sets to evaluate model performance\n
+    Returns the fitted model to use for future predictions"""
+    
+    # Fit the model with train data and predict with test data to calculate accuracy of the model
+    classifier = KNeighborsClassifier(**kwargs)
+    classifier.fit(X_train, y_train)
+
+    # Calculate the performance of the model to determine if overfitting/underfitting is occuring
+    print(f"Accuracy score of training data: {classifier.score(X_train, y_train)}")
+    print(f"Accuracy score of test data: {classifier.score(X_test, y_test)}")
+    return classifier
+
+
+def optimal_hyperparameters(ModelClass, tuned_parameters, X_train, y_train, **kwargs):
+    """Iterates through all hyperparameter combinations passed in (tuned_parameters) to find the best performing model based on highest desired scoring method\n
+    Returns a dictionary of best parameters for the highest scoring model"""
+    
+    # GridSearchCV to find the optimal n_neighbors based on desired scoring method 
+    clf = GridSearchCV(estimator=ModelClass(),
+                  param_grid=tuned_parameters,
+                  **kwargs)
+    
+    clf.fit(X_train, y_train)
+    best_parameters = clf.best_params_
+    
+    # Information on best performing model for evaluation
+    print(clf.best_estimator_)
+    print(f"Highest model {clf.scorer_} is: {clf.best_score_}")
+    
+    # Unpack dict (**best_parameters) to pass in arguements for the model
+    return best_parameters
