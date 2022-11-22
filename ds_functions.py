@@ -10,12 +10,13 @@ from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 
 def missing_data_check(dataframe):
     """Summary of dtypes and null values to aid in data cleaning"""
+    
     print(dataframe.info())
     print(dataframe.isnull().sum())
 
 
 def summary_stats_barplot(dataframe, np_function, column, value):
-    """Takes the dataframe, groups by column and sorts the data by value, according to the aggregate function passed in, for seaborn visualization\n
+    """Takes the dataframe, groups by column and sorts the data by value, according to the aggregate function passed in, for seaborn barplot visualization\n
     Examples of functions are np.mean, np.median, etc"""
     
     # Summary stat to serve as a reference vertical line in the bar graph 
@@ -36,6 +37,7 @@ def summary_stats_barplot(dataframe, np_function, column, value):
 
 def sorted_boxplot(dataframe, column, value):
     """Sorts the dataframe based on the category/column in descending order to create a sorted boxplot visualization"""
+
     dataframe.sort_values(by=column, ascending=False, inplace=True)
     sns.boxplot(data=dataframe, x=value, y=column)
     plt.show()
@@ -44,6 +46,7 @@ def sorted_boxplot(dataframe, column, value):
 def unique_categories(dataframe, column):
     """Return a list of all unique categories for a given dataframe column"""
     categories = list(dataframe[column].unique())
+
     return categories
 
 
@@ -60,26 +63,26 @@ def column_std(dataframe, column, value):
 
     #Prints out category and std for ANOVA Test std assumption 
     for category in categories:
-        print(category, dataframe[dataframe[column] == category][value].std())
-        standard_deviations.append(dataframe[dataframe[column] == category][value].std())
-    
+        category_std = dataframe[dataframe[column] == category][value].std()
+        standard_deviations.append(category_std)
+        print(category, category_std)
+
     ANOVA_std_ratio = max(standard_deviations) / min(standard_deviations)
     print(f"ANOVA std ratio for {value} is: {ANOVA_std_ratio}")
 
 
 def zscore_normalization(dataframe, column, zscore_threshold=3):
-    """Requires from scipy.stats import zscore\n
-    Removes all rows that are considered outliers from a specific column based on a zscore threshold.\n
+    """Removes all rows that are considered outliers from a specific column based on a zscore threshold.\n
     The values above or below the threshold are considered outliers (default +/- 3)\n
     Prints out the number of rows removed.\n
     Returns the dataframe with outliers removed"""
     
-    zscore_threshold
     # Abs to facilitate filtering of values that are above the zscore threshold
-    dataframe_zscored = dataframe[(zscore(dataframe[column].abs()) < zscore_threshold)]
+    dataframe_zscored = dataframe[zscore(dataframe[column].abs()) < zscore_threshold]
 
     records_removed = len(dataframe) - len(dataframe_zscored)
     print(f'{records_removed} rows removed')
+
     return dataframe_zscored
 
 
@@ -116,18 +119,23 @@ def two_tail_ttest(dataframe, column, value, **kwargs):
 def tukeys_test(dataframe, column, value, pval_threshold=0.05):
     """Prints out the results of Tukey's Range Test to determine which pairings of an ANOVA Test are significant\n
     Uses standard significance threshold of 0.05 by default"""
-       
-    pval_threshold
-    tukey_results = pairwise_tukeyhsd(dataframe[value], dataframe[column], pval_threshold)
+    
+    # Labels for tukey's range test  
+    categories = dataframe[column]
+    
+    # Numeric data associated with the categories for tukey's range test
+    category_data = dataframe[value]
+
+    tukey_results = pairwise_tukeyhsd(category_data, categories, pval_threshold)
     print(tukey_results)
 
 
 def ln_transformation(dataframe, columns):
     """Performs a natural log transformation on the values from a specific column(s)\n
-    Prints out the number of row removed to complete the transformation\n
-    Returns a dataframe tranformed column(s)"""
+    Prints out the number of rows removed to complete the transformation\n
+    Returns a dataframe with the transformed column(s)"""
 
-    # Copy to perform ln transformation to preserve clean dataset
+    # Dataframe copy for ln transformation to preserve the cleaned dataset
     dataframe_ln = dataframe.copy()
 
     #Remove all values <=0 to prep for transformation (log of value <= 0 is undefined)
@@ -136,7 +144,8 @@ def ln_transformation(dataframe, columns):
         dataframe_ln = dataframe_ln[dataframe_ln[column] > undefined]
 
         # ln transformation for data profiling and ANOVA test
-        dataframe_ln[column] = np.log(dataframe_ln[column])
+        ln_transformed_column = np.log(dataframe_ln[column])
+        dataframe_ln[column] = ln_transformed_column
 
     # Check number of records removed
     records_removed = len(dataframe) - len(dataframe_ln)
@@ -147,15 +156,19 @@ def ln_transformation(dataframe, columns):
 
 def unique_values(dataframe):
     """Examine values of all columns to find null or inappropriate values for data cleaning"""
-    #Examine unique values for each column for data cleaning
+    
+    # Examine unique values for each column for data cleaning
     columns = dataframe.columns
 
+    # Prints column name along with a list of unique column values to facilitate data cleaning
     for column in columns:
-        print(f"{column}: {dataframe[column].unique()}\n")
+        unique_values = dataframe[column].unique()
+        print(f"{column}: {unique_values}\n")
 
 
 def corr_heatmap(dataframe, cmap='RdBu_r'):
     """Selects all numeric columns of a dataframe and displays a heatmap visualization"""
+    
     # Filter by numeric columns to calculate pearson correlation
     dataframe_numeric = dataframe.select_dtypes(include=np.number)
 
@@ -175,7 +188,7 @@ def corr_heatmap_by_category(dataframe, column, cmap='RdBu_r'):
     categories = unique_categories(dataframe, column)
 
     for category in categories:
-        # Filter by category and select only numeric columns to calculate pearson correlation
+        # Filter data by category and select only numeric columns to calculate pearson correlation
         filtered_dataframe = dataframe[dataframe[column] == category].select_dtypes(include=np.number)
 
         # Create a correlation matrix to visualize the correlations of the numeric columns
@@ -190,7 +203,7 @@ def corr_heatmap_by_category(dataframe, column, cmap='RdBu_r'):
 def extract_features(dataframe, label):
     """Splits features and labels for future machine learning algorithms\n
     Label is the classification/regression column of interest\n
-    Returns features, labels"""
+    Returns features, labels. Prints out all features names for verification"""
     
     # Select features and outcomes for train_test_split
     features = dataframe.drop(columns=[label])
@@ -203,9 +216,10 @@ def extract_features(dataframe, label):
 
 
 def scale_features(ScalerModel, features, **kwargs):
-    """Scales the features with the passed in scaler object\n
-    Features are typically normalized to prevent one feature from having more weight than another, which can reduce model predictions\n
-    Returns the scaled_features"""
+    """Scales the features with the passed in scaler model\n
+    Features are typically normalized to prevent one feature from having more weight than another, which can reduce model effectiveness\n
+    Returns the scaled features. Prints out scaled feature names for verification"""
+    
     # Normalize the data to prevent one or more features from having more importance than other features during model creation
     scaler = ScalerModel(**kwargs)
     scaled_features = scaler.fit_transform(features)
@@ -217,9 +231,9 @@ def scale_features(ScalerModel, features, **kwargs):
 
 
 def sfs_selection_details(sfs, features):
-    """Prints out chosen column indexes/names that scored the highest after sequential feature selection"""
+    """Prints out chosen column indexes/names that scored the highest after sequential feature selection. Also prints overall model score"""
     chosen_features_indexes = sfs.k_feature_idx_
-    feature_column_names = features.iloc[:, list(chosen_features_indexes)].columns
+    feature_column_names = features.iloc[:, list(chosen_features_indexes)].columns # Select all rows and specific columns using [rows, columns] 
     model_score = sfs.k_score_
 
     print(f"Column indexes chosen are: {chosen_features_indexes}")
@@ -231,18 +245,18 @@ def selected_feature_data(sfs, scaled_features):
     """Identifies highest scoring features for use in train_test_split and machine learning algorithms\n
     Returns the feature columns/data that scored the highest from the sfs"""
     
-    # Convert numpy array of chosen feature indexes to list to filter scaled features dataframe
+    # List of highest scoring feature indexes to select optimal features data
     chosen_features_indexes = list(sfs.k_feature_idx_)
     
-    # Select all rows and specific columns using [rows, columns]
-    features_sfs = scaled_features[:, chosen_features_indexes]
+    # Create a dataframe including only optimal features from sfs_feature_selection to use in machine learning algorithms
+    sfs_dataframe = scaled_features[:, chosen_features_indexes] # Select all rows and specific columns using [rows, columns] 
     
-    return features_sfs
+    return sfs_dataframe
 
 
 def sfs_feature_selection(MLModelClass, scaled_features, labels, **kwargs):
-    """SFS to automate which features would improve the model's accuracy/effectiveness\n
-    Returns the fitted sfs model, num_of_features"""
+    """Sequential Forward Selection (SFS) to automate selection of features which would improve the model's accuracy/effectiveness\n
+    Returns the fitted sfs model, number of features initially selected (k_features=num_of_features)"""
     sfs = SFS(estimator=MLModelClass(),
          **kwargs
          )
@@ -254,22 +268,25 @@ def sfs_feature_selection(MLModelClass, scaled_features, labels, **kwargs):
 
 
 def KNC_evaluation(X_train, X_test, y_train, y_test, **kwargs):
-    """Creates a KNeighborsClaasifier and prints the scores of the training and testing sets to evaluate model performance\n
+    """Creates a KNeighborsClassifier, fits it to the training data and prints the scores of the training and testing sets to evaluate model performance\n
     Returns the fitted model to use for future predictions"""
     
-    # Fit the model with train data and predict with test data to calculate accuracy of the model
+    # Fit the model using the training data to calculate the accuracy of the model
     classifier = KNeighborsClassifier(**kwargs)
     classifier.fit(X_train, y_train)
 
     # Calculate the performance of the model to determine if overfitting/underfitting is occuring
-    print(f"Accuracy score of training data: {classifier.score(X_train, y_train)}")
-    print(f"Accuracy score of test data: {classifier.score(X_test, y_test)}")
+    training_score = classifier.score(X_train, y_train)
+    testing_score = classifier.score(X_test, y_test)
+    
+    print(f"Accuracy score of training data: {training_score}")
+    print(f"Accuracy score of test data: {testing_score}")
     
     return classifier
 
 
 def optimal_hyperparameters(ModelClass, tuned_parameters, X_train, y_train, **kwargs):
-    """Iterates through all hyperparameter combinations passed in (tuned_parameters) to find the best performing model based on highest desired scoring method\n
+    """Iterates through all hyperparameter combinations from tuned_parameters to find the best performing model based on highest desired scoring method\n
     Returns a dictionary of best parameters for the highest scoring model"""
     
     # GridSearchCV to find the optimal n_neighbors based on desired scoring method 
